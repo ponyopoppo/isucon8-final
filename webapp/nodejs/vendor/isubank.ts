@@ -68,7 +68,6 @@ export class IsuBank {
             'Content-Type': 'application/json',
             Authorization: 'Bearer ' + this.appID,
         };
-        console.log(body);
         let res: Response;
         try {
             res = await fetch(url, {
@@ -86,8 +85,8 @@ export class IsuBank {
         }
 
         const { error } = await res.json();
+        console.log({ error });
         if (error === 'bank_id not found') {
-            console.log({ error });
             throw new NoUserError();
         }
         if (error === 'credit is insufficient') {
