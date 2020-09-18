@@ -14,9 +14,7 @@ export class IsuLogger {
         setInterval(async () => {
             if (!queue.length) return;
             try {
-                for (const data of queue) {
-                    await this.request(data);
-                }
+                this.request(queue);
                 queue = [];
             } catch (e) {}
         }, 200);
@@ -30,7 +28,7 @@ export class IsuLogger {
         });
     }
 
-    private async request(data: Data) {
+    private async request(data: Data[]) {
         const url = urljoin(this.endpoint, '/send');
         const body = JSON.stringify(data);
         const headers = {
@@ -38,7 +36,7 @@ export class IsuLogger {
             Authorization: 'Bearer ' + this.appID,
         };
         const res = await fetch(url, { body, headers, method: 'POST' });
-        console.log('log request', { url, headers, data });
+        console.log('log request', { url, headers }, data);
         if (res.status >= 300) {
             throw new Error(
                 `failed isulogger request ${res.statusText} ${
