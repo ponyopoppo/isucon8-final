@@ -1,3 +1,4 @@
+import StopWatch from '@ponyopoppo/node-stop-watch';
 import { Connection } from 'mysql';
 import { dbQuery } from '../db';
 import { getIsubank, sendLog } from './settings';
@@ -127,7 +128,7 @@ async function getOrderByIdWithLock(
         id
     );
     if (!order) return null;
-    order.user = await getUserByIdWithLock(db, order.user_id);
+    order.user = await getUserById(db, order.user_id);
     return order;
 }
 
