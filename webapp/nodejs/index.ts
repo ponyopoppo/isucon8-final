@@ -34,7 +34,7 @@ import {
     runTrade,
 } from './model/trades';
 import StopWatch from '@ponyopoppo/node-stop-watch';
-
+// StopWatch.disableAll();
 declare global {
     namespace Express {
         export interface Request {
@@ -282,7 +282,6 @@ app.post('/orders', async (req, res) => {
         }
     }
     sw.record('4');
-    console.log('hoge');
     res.json({ id: order!.id });
 });
 

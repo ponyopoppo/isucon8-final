@@ -219,8 +219,12 @@ async function tryTrade(orderId: number) {
         reserves = [];
     } finally {
         if (reserves.length) {
-            const bank = await getIsubank();
-            await bank.cancel(reserves);
+            try {
+                const bank = await getIsubank();
+                await bank.cancel(reserves);
+            } catch (e) {
+                console.error('Cancel error!', e);
+            }
         }
     }
 }
