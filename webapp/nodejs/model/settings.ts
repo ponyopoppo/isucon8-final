@@ -10,7 +10,7 @@ const LOG_APPID = 'log_appid';
 const settingsCache = {} as any;
 
 export async function setSetting(k: string, v: string) {
-    console.log({ k, v });
+    settingsCache[k] = v;
     await dbQuery(
         'INSERT INTO setting (name, val) VALUES (?, ?) ON DUPLICATE KEY UPDATE val = VALUES(val)',
         [k, v]
