@@ -17,7 +17,7 @@ import {
     getOrdersByUserIdAndLasttradeid,
     Order,
 } from './model/orders';
-import { getConnection, transaction } from './db';
+import { dbQuery, getConnection, transaction } from './db';
 import {
     BankUserConflict,
     BankUserNotFound,
@@ -27,10 +27,12 @@ import {
     User,
 } from './model/users';
 import {
-    getCandlesticData,
+    addCacheTrade,
+    getCacheCandlestick,
     getLatestTrade,
     getTradeById,
     hasTradeChanceByOrder,
+    resetCacheTrade,
     runTrade,
 } from './model/trades';
 import StopWatch from '@ponyopoppo/node-stop-watch';
@@ -101,6 +103,12 @@ app.post('/initialize', async (req, res) => {
         await initBenchmark(db);
     });
     console.log('body', req.body);
+    resetCacheTrade();
+    const trades = await dbQuery(db, 'SELECT * FROM trade');
+    console.log(trades.length);
+    for (const trade of trades) {
+        addCacheTrade(trade);
+    }
     for (const k of [
         'bank_endpoint',
         'bank_appid',
@@ -173,7 +181,7 @@ app.get('/info', async (req, res) => {
     const info: any = {};
     const { cursor } = req.query;
     let lastTradeId = 0;
-    let lt = null;
+    let lastTradeDate = null;
     sw.record('1');
     const db = await getConnection();
     if (cursor) {
@@ -185,7 +193,7 @@ app.get('/info', async (req, res) => {
         if (lastTradeId > 0) {
             const trade = await getTradeById(db, lastTradeId);
             if (trade) {
-                lt = trade.created_at;
+                lastTradeDate = trade.created_at;
             }
         }
     }
@@ -208,32 +216,28 @@ app.get('/info', async (req, res) => {
     }
     sw.record('3');
     let fromT = new Date(BASE_TIME.getTime() - 300 * 1000);
-    if (lt && lt > fromT) {
-        fromT = new Date(lt);
+    if (lastTradeDate && lastTradeDate > fromT) {
+        fromT = new Date(lastTradeDate);
         fromT.setMilliseconds(0);
     }
-    info.chart_by_sec = await getCandlesticData(db, fromT, '%Y-%m-%d %H:%i:%s');
+    info.chart_by_sec = getCacheCandlestick(fromT, 'secondly');
     sw.record('3.1');
     fromT = new Date(BASE_TIME.getTime() - 300 * 60 * 1000);
-    if (lt && lt > fromT) {
-        fromT = new Date(lt);
+    if (lastTradeDate && lastTradeDate > fromT) {
+        fromT = new Date(lastTradeDate);
         fromT.setMilliseconds(0);
         fromT.setSeconds(0);
     }
-    info.chart_by_min = await getCandlesticData(db, fromT, '%Y-%m-%d %H:%i:00');
+    info.chart_by_min = getCacheCandlestick(fromT, 'minutely');
     sw.record('3.2');
     fromT = new Date(BASE_TIME.getTime() - 48 * 60 * 60 * 1000);
-    if (lt && lt > fromT) {
-        fromT = new Date(lt);
+    if (lastTradeDate && lastTradeDate > fromT) {
+        fromT = new Date(lastTradeDate);
         fromT.setMilliseconds(0);
         fromT.setSeconds(0);
         fromT.setMinutes(0);
     }
-    info.chart_by_hour = await getCandlesticData(
-        db,
-        fromT,
-        '%Y-%m-%d %H:00:00'
-    );
+    info.chart_by_hour = getCacheCandlestick(fromT, 'hourly');
     sw.record('3.3');
     const lowestSellOrder = await getLowestSellOrder(db);
     if (lowestSellOrder) {
@@ -281,6 +285,9 @@ app.post('/orders', async (req, res) => {
             order = await addOrder(db, type, user.id, amount, price);
         });
     } catch (e) {
+        if (e.message !== 'value error') {
+            console.log('error', e);
+        }
         db.release();
         return sendError(res, 400, e.message);
     }

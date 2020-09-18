@@ -39,6 +39,100 @@ class CandlestickData {
     ) {}
 }
 
+interface Candle {
+    t: Date;
+    open: number;
+    close: number;
+    h: number;
+    l: number;
+    minId: number;
+    maxId: number;
+}
+
+let minutelySum: {
+    [key: string]: Candle;
+} = {};
+
+let hourlySum: {
+    [key: string]: Candle;
+} = {};
+
+let secondlySum: {
+    [key: string]: Candle;
+} = {};
+
+function updateSum(date: Date, sum: { [key: string]: Candle }, trade: Trade) {
+    const key = date.getTime();
+    if (!sum[key]) {
+        sum[key] = {
+            t: date,
+            open: trade.price,
+            close: trade.price,
+            h: trade.price,
+            l: trade.price,
+            minId: trade.id,
+            maxId: trade.id,
+        };
+    } else {
+        if (trade.id < sum[key].minId) {
+            sum[key].minId = trade.id;
+            sum[key].open = trade.price;
+        }
+        if (trade.id > sum[key].maxId) {
+            sum[key].maxId = trade.id;
+            sum[key].close = trade.price;
+        }
+        if (trade.price < sum[key].l) {
+            sum[key].l = trade.price;
+        }
+        if (trade.price > sum[key].h) {
+            sum[key].h = trade.price;
+        }
+    }
+}
+
+export function addCacheTrade(trade: Trade) {
+    const hdate = new Date(trade.created_at);
+    hdate.setMinutes(0);
+    hdate.setSeconds(0);
+    hdate.setMilliseconds(0);
+    updateSum(hdate, hourlySum, trade);
+    const mdate = new Date(trade.created_at);
+    mdate.setSeconds(0);
+    mdate.setMilliseconds(0);
+    updateSum(mdate, minutelySum, trade);
+    const sdate = new Date(trade.created_at);
+    sdate.setMilliseconds(0);
+    updateSum(sdate, secondlySum, trade);
+}
+
+export function resetCacheTrade() {
+    hourlySum = {};
+    minutelySum = {};
+    secondlySum = {};
+}
+
+export function getCacheCandlestick(
+    lowerBound: Date,
+    type: 'minutely' | 'hourly' | 'secondly'
+): CandlestickData[] {
+    let sum = minutelySum;
+    if (type === 'hourly') {
+        sum = hourlySum;
+    } else if (type === 'secondly') {
+        sum = secondlySum;
+    }
+    const result = [] as Candle[];
+    for (const key of Object.keys(sum)) {
+        if (parseInt(key, 10) < lowerBound.getTime()) continue;
+        result.push(sum[key]);
+    }
+    return result.map(
+        (row: Candle) =>
+            new CandlestickData(row.t, row.open, row.close, row.h, row.l)
+    );
+}
+
 async function getTrade(
     db: Connection,
     query: string,
@@ -63,7 +157,7 @@ export async function getCandlesticData(
     timeFormat: string
 ) {
     const query = `
-        SELECT m.t, a.price as open, b.price as close, m.h, m.l
+        SELECT m.t, a.price as open, b.price as close, m.h, m.l, min_id, max_id
         FROM (
             SELECT
                 STR_TO_DATE(DATE_FORMAT(created_at, ?), '%Y-%m-%d %H:%i:%s') AS t,
@@ -175,6 +269,7 @@ async function commitReservedOrder(
 
     const bank = await getIsubank(db);
     await bank.commit(reserveIds);
+    addCacheTrade(trade);
 }
 
 async function tryTrade(db: Connection, orderId: number) {
