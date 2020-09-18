@@ -37,6 +37,8 @@ services:
       - ./mysql/conf.d:/etc/mysql/conf.d
       - /var/log/mysql:/var/log/mysql
     # development only
+    security_opt:
+      - seccomp:unconfined
     ports:
       - "13306:3306"
 
