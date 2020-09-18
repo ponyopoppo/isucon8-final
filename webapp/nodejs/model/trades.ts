@@ -52,12 +52,12 @@ export async function getLatestTrade() {
     return getTrade('SELECT * FROM trade ORDER BY id DESC LIMIT 1');
 }
 
-export async function getCandlesticData(mt: Date, tf: string) {
+export async function getCandlesticData(lowerBound: Date, timeFormat: string) {
     const query = `
         SELECT m.t, a.price as open, b.price as close, m.h, m.l
         FROM (
             SELECT
-                STR_TO_DATE(DATE_FORMAT(created_at, ?), ?) AS t,
+                STR_TO_DATE(DATE_FORMAT(created_at, ?), '%Y-%m-%d %H:%i:%s') AS t,
                 MIN(id) AS min_id,
                 MAX(id) AS max_id,
                 MAX(price) AS h,
@@ -70,7 +70,7 @@ export async function getCandlesticData(mt: Date, tf: string) {
         JOIN trade b ON b.id = m.max_id
         ORDER BY m.t
     `;
-    const result = await dbQuery(query, [tf, '%Y-%m-%d %H:%i:%s', mt]);
+    const result = await dbQuery(query, [timeFormat, lowerBound]);
     return result.map(
         (row: any) =>
             new CandlestickData(row.t, row.open, row.close, row.h, row.l)

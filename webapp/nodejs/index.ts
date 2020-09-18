@@ -199,13 +199,25 @@ app.get('/info', async (req, res) => {
     let fromT = new Date(BASE_TIME.getTime() - 300 * 1000);
     if (lt && lt > fromT) {
         fromT = new Date(lt);
+        fromT.setMilliseconds(0);
     }
     info.chart_by_sec = await getCandlesticData(fromT, '%Y-%m-%d %H:%i:%s');
     sw.record('3.1');
     fromT = new Date(BASE_TIME.getTime() - 300 * 60 * 1000);
+    if (lt && lt > fromT) {
+        fromT = new Date(lt);
+        fromT.setMilliseconds(0);
+        fromT.setSeconds(0);
+    }
     info.chart_by_min = await getCandlesticData(fromT, '%Y-%m-%d %H:%i:00');
     sw.record('3.2');
     fromT = new Date(BASE_TIME.getTime() - 48 * 60 * 60 * 1000);
+    if (lt && lt > fromT) {
+        fromT = new Date(lt);
+        fromT.setMilliseconds(0);
+        fromT.setSeconds(0);
+        fromT.setMinutes(0);
+    }
     info.chart_by_hour = await getCandlesticData(fromT, '%Y-%m-%d %H:00:00');
     sw.record('3.3');
     const lowestSellOrder = await getLowestSellOrder();

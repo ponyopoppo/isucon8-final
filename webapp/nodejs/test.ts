@@ -32,30 +32,30 @@ async function signupAndSignin() {
         .expect(200);
 }
 
-// describe('/info', () => {
-//     it('should response something', async () => {
-//         await signupAndSignin();
-
-//         const response = await agent
-//             .get('/info')
-//             .set('Accept', 'application/json, text/plain, */*')
-//             .query({})
-//             .send({});
-
-//         snapshot(JSON.parse(response.text));
-//     });
-// });
-
-describe('/orders', () => {
+describe('/info', () => {
     it('should response something', async () => {
         await signupAndSignin();
 
         const response = await agent
-            .post('/orders')
+            .get('/info')
             .set('Accept', 'application/json, text/plain, */*')
             .query({})
-            .send('type=sell&amount=2&price=6')
-            .expect(200);
-        assert.isNumber(JSON.parse(response.text).id);
+            .send({});
+
+        snapshot(JSON.parse(response.text));
     });
 });
+
+// describe('/orders', () => {
+//     it('should response something', async () => {
+//         await signupAndSignin();
+
+//         const response = await agent
+//             .post('/orders')
+//             .set('Accept', 'application/json, text/plain, */*')
+//             .query({})
+//             .send('type=sell&amount=2&price=6')
+//             .expect(200);
+//         assert.isNumber(JSON.parse(response.text).id);
+//     });
+// });
