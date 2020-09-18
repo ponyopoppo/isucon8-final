@@ -16,7 +16,9 @@ export class IsuLogger {
             try {
                 await this.request(queue);
                 queue = [];
-            } catch (e) {}
+            } catch (e) {
+                console.log('logger error!!', e);
+            }
         }, 200);
     }
 
