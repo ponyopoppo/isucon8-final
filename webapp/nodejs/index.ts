@@ -68,6 +68,7 @@ function sendError(res: express.Response, code: number, msg: string) {
 
 app.use(express.static(PUBLIC_DIR));
 app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
 app.use(session({ secret: 'tonymoris' }));
 
 app.use(async function beforeRequest(req, res, next) {
@@ -94,7 +95,7 @@ app.post('/initialize', async (req, res) => {
     await transaction(async () => {
         await initBenchmark();
     });
-
+    console.log('body', req.body);
     for (const k of [
         'bank_endpoint',
         'bank_appid',
@@ -299,3 +300,5 @@ const PORT = process.env.ISU_APP_PORT || 5000;
 app.listen(PORT, function listeningListener() {
     console.log(`listening on ${PORT}`);
 });
+
+export default app;

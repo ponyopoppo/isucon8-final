@@ -8,6 +8,7 @@ const LOG_ENDPOINT = 'log_endpoint';
 const LOG_APPID = 'log_appid';
 
 export async function setSetting(k: string, v: string) {
+    console.log({ k, v });
     await dbQuery(
         'INSERT INTO setting (name, val) VALUES (?, ?) ON DUPLICATE KEY UPDATE val = VALUES(val)',
         [k, v]
@@ -24,6 +25,7 @@ export async function getSetting(k: string): Promise<string> {
 export async function getIsubank(): Promise<IsuBank> {
     const endpoint = await getSetting(BANK_ENDPOINT);
     const appid = await getSetting(BANK_APPID);
+    console.log({ endpoint, appid });
     return new IsuBank(endpoint, appid);
 }
 
