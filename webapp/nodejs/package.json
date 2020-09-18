@@ -4,7 +4,7 @@
     "description": "",
     "main": "index.ts",
     "scripts": {
-        "start": "ts-node index.ts",
+        "start": "node -r ts-node/register --prof app.ts",
         "test": "ts-mocha test.ts"
     },
     "author": "",
