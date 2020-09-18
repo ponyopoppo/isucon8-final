@@ -11,11 +11,13 @@ let queue: Data[] = [];
 
 export class IsuLogger {
     constructor(public endpoint: string, public appID: string) {
-        setInterval(() => {
+        setInterval(async () => {
             if (!queue.length) return;
-            this.request(queue);
-            queue = [];
-        }, 3000);
+            try {
+                await this.request(queue);
+                queue = [];
+            } catch (e) {}
+        }, 200);
     }
 
     async send(tag: string, data: object) {
