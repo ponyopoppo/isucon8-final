@@ -33,8 +33,8 @@ export class Order {
         public user_id: number,
         public amount: number,
         public price: number,
-        public closed_at: Date,
-        public trade_id: number,
+        public closed_at: Date | null,
+        public trade_id: number | null,
         public created_at: Date
     ) {
         this.type = type.toString();
@@ -172,12 +172,12 @@ export async function addOrder(
     } else if (ot !== 'sell') {
         throw new Error('value error');
     }
-
+    const createdAt = new Date();
     const {
         insertId,
     } = await dbQuery(
-        'INSERT INTO orders (type, user_id, amount, price, created_at) VALUES (?, ?, ?, ?, NOW(6))',
-        [ot, userId, amount, price]
+        'INSERT INTO orders (type, user_id, amount, price, created_at) VALUES (?, ?, ?, ?, ?)',
+        [ot, userId, amount, price, createdAt]
     );
     await sendLog(ot + '.order', {
         order_id: insertId,
@@ -185,7 +185,16 @@ export async function addOrder(
         amount: amount,
         price: price,
     });
-    return (await getOrderById(insertId)) as Order;
+    return new Order(
+        insertId,
+        ot,
+        userId,
+        amount,
+        price,
+        null,
+        null,
+        createdAt
+    );
 }
 
 export async function deleteOrder(
