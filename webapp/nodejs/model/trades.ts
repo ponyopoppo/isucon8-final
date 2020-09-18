@@ -52,16 +52,24 @@ interface Candle {
 let minutelySum: {
     [key: string]: Candle;
 } = {};
+let minKeys: number[] = [];
 
 let hourlySum: {
     [key: string]: Candle;
 } = {};
+let hourKeys: number[] = [];
 
 let secondlySum: {
     [key: string]: Candle;
 } = {};
+let secondKeys: number[] = [];
 
-function updateSum(date: Date, sum: { [key: string]: Candle }, trade: Trade) {
+function updateSum(
+    date: Date,
+    sum: { [key: string]: Candle },
+    trade: Trade,
+    keys: number[]
+) {
     const key = date.getTime();
     if (!sum[key]) {
         sum[key] = {
@@ -73,6 +81,7 @@ function updateSum(date: Date, sum: { [key: string]: Candle }, trade: Trade) {
             minId: trade.id,
             maxId: trade.id,
         };
+        keys.push(key);
     } else {
         if (trade.id < sum[key].minId) {
             sum[key].minId = trade.id;
@@ -96,20 +105,37 @@ export function addCacheTrade(trade: Trade) {
     hdate.setMinutes(0);
     hdate.setSeconds(0);
     hdate.setMilliseconds(0);
-    updateSum(hdate, hourlySum, trade);
+    updateSum(hdate, hourlySum, trade, hourKeys);
     const mdate = new Date(trade.created_at);
     mdate.setSeconds(0);
     mdate.setMilliseconds(0);
-    updateSum(mdate, minutelySum, trade);
+    updateSum(mdate, minutelySum, trade, minKeys);
     const sdate = new Date(trade.created_at);
     sdate.setMilliseconds(0);
-    updateSum(sdate, secondlySum, trade);
+    updateSum(sdate, secondlySum, trade, secondKeys);
 }
 
 export function resetCacheTrade() {
     hourlySum = {};
+    hourKeys = [];
     minutelySum = {};
+    minKeys = [];
     secondlySum = {};
+    secondKeys = [];
+}
+
+function findMinKeyPos(keys: number[], lowerBound: number) {
+    let lower = -1;
+    let upper = keys.length - 1;
+    while (upper - lower > 1) {
+        let mid = Math.floor((upper + lower) / 2);
+        if (keys[mid] < lowerBound) {
+            lower = mid;
+        } else {
+            upper = mid;
+        }
+    }
+    return upper;
 }
 
 export function getCacheCandlestick(
@@ -117,15 +143,21 @@ export function getCacheCandlestick(
     type: 'minutely' | 'hourly' | 'secondly'
 ): CandlestickData[] {
     let sum = minutelySum;
+    let keys = minKeys;
     if (type === 'hourly') {
         sum = hourlySum;
+        keys = hourKeys;
     } else if (type === 'secondly') {
         sum = secondlySum;
+        keys = secondKeys;
     }
     const result = [] as Candle[];
-    for (const key of Object.keys(sum)) {
-        if (parseInt(key, 10) < lowerBound.getTime()) continue;
-        result.push(sum[key]);
+    for (
+        let pos = findMinKeyPos(keys, lowerBound.getTime());
+        pos < keys.length;
+        pos++
+    ) {
+        result.push(sum[keys[pos]]);
     }
     return result.map(
         (row: Candle) =>
