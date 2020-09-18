@@ -258,6 +258,10 @@ export async function cancelOrder(
     order: Order,
     reason: string
 ): Promise<void> {
+    const order_ = await getOrderByIdWithLock(db, order.id);
+    if (order_?.closed_at) {
+        throw new OrderAlreadyClosed();
+    }
     await dbQuery(db, 'UPDATE orders SET closed_at = NOW(6) WHERE id = ?', [
         order.id,
     ]);
