@@ -34,7 +34,7 @@ import {
     runTrade,
 } from './model/trades';
 import StopWatch from '@ponyopoppo/node-stop-watch';
-// StopWatch.disableAll();
+StopWatch.disableAll();
 declare global {
     namespace Express {
         export interface Request {

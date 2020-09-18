@@ -189,13 +189,13 @@ async function tryTrade(db: Connection, orderId: number) {
         if (order.type === 'buy') {
             result = await dbQuery(
                 db,
-                'SELECT * FROM orders WHERE type = ? AND closed_at IS NULL AND price <= ? ORDER BY price ASC, created_at ASC, id ASC',
+                'SELECT * FROM orders WHERE type = ? AND closed_at IS NULL AND price <= ? ORDER BY price ASC, created_at ASC, id ASC FOR UPDATE',
                 ['sell', order.price]
             );
         } else {
             result = await dbQuery(
                 db,
-                'SELECT * FROM orders WHERE type = ? AND closed_at IS NULL AND price >= ? ORDER BY price DESC, created_at DESC, id DESC',
+                'SELECT * FROM orders WHERE type = ? AND closed_at IS NULL AND price >= ? ORDER BY price DESC, created_at DESC, id DESC FOR UPDATE',
                 ['buy', order.price]
             );
         }
@@ -242,6 +242,7 @@ async function tryTrade(db: Connection, orderId: number) {
             await commitReservedOrder(db, order, targets, reserves);
         } catch (e) {
             console.error('commitReservedOrder error!', e);
+            process.exit(1);
         }
         reserves = [];
     } finally {
@@ -251,6 +252,7 @@ async function tryTrade(db: Connection, orderId: number) {
                 await bank.cancel(reserves);
             } catch (e) {
                 console.error('Cancel error!', e);
+                process.exit(1);
             }
         }
     }
