@@ -215,7 +215,11 @@ async function tryTrade(orderId: number) {
         if (restAmount > 0) {
             throw new NoOrderForTrade();
         }
-        await commitReservedOrder(order, targets, reserves);
+        try {
+            await commitReservedOrder(order, targets, reserves);
+        } catch (e) {
+            console.error('commitReservedOrder error!', e);
+        }
         reserves = [];
     } finally {
         if (reserves.length) {
