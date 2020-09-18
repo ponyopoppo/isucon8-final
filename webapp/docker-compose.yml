@@ -6,7 +6,7 @@ services:
       - ./nginx:/etc/nginx
       - /var/log/nginx:/var/log/nginx
     ports:
-      - "443:443"
+      - "80:80"
     links:
       - isucoin
 
@@ -23,6 +23,8 @@ services:
       - mysql
     volumes:
       - ./public:/public
+    extra_hosts:
+      - compose.isucon8.flying-chair.net:54.248.183.230
 
   mysql:
     image: mysql:8
