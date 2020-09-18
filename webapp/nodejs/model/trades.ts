@@ -119,13 +119,15 @@ async function reserveOrder(
     try {
         return await bank.reserve(order.user!.bank_id, p);
     } catch (e) {
-        await cancelOrder(db, order, 'reserve_failed');
-        await sendLog(db, order.type + '.error', {
-            error: e.message,
-            user_id: order.user_id,
-            amount: order.amount,
-            price: price,
-        });
+        if (e instanceof CreditInsufficient) {
+            await cancelOrder(db, order, 'reserve_failed');
+            await sendLog(db, order.type + '.error', {
+                error: e.message,
+                user_id: order.user_id,
+                amount: order.amount,
+                price: price,
+            });
+        }
         throw e;
     }
 }
