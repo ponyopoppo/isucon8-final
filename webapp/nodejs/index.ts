@@ -33,6 +33,7 @@ import {
     hasTradeChanceByOrder,
     runTrade,
 } from './model/trades';
+import StopWatch from '@ponyopoppo/node-stop-watch';
 
 declare global {
     namespace Express {
@@ -159,10 +160,12 @@ app.post('/signout', async (req, res) => {
 });
 
 app.get('/info', async (req, res) => {
+    const sw = new StopWatch('info');
     const info: any = {};
     const { cursor } = req.query;
     let lastTradeId = 0;
     let lt = null;
+    sw.record('1');
     if (cursor) {
         try {
             lastTradeId = parseInt(cursor as string);
@@ -176,43 +179,45 @@ app.get('/info', async (req, res) => {
             }
         }
     }
-
+    sw.record('2');
     const latestTrade = await getLatestTrade();
     info.cursor = latestTrade!.id;
     const user = req.currentUser;
+    sw.record('2.5');
     if (user) {
         const orders = await getOrdersByUserIdAndLasttradeid(
             user.id,
             lastTradeId
         );
+        sw.record('2.75');
         for (const o of orders) {
             await fetchOrderRelation(o);
         }
         info.traded_orders = orders;
     }
-
+    sw.record('3');
     let fromT = new Date(BASE_TIME.getTime() - 300 * 1000);
     if (lt && lt > fromT) {
         fromT = new Date(lt);
     }
     info.chart_by_sec = await getCandlesticData(fromT, '%Y-%m-%d %H:%i:%s');
-
+    sw.record('3.1');
     fromT = new Date(BASE_TIME.getTime() - 300 * 60 * 1000);
     info.chart_by_min = await getCandlesticData(fromT, '%Y-%m-%d %H:%i:00');
-
+    sw.record('3.2');
     fromT = new Date(BASE_TIME.getTime() - 48 * 60 * 60 * 1000);
     info.chart_by_hour = await getCandlesticData(fromT, '%Y-%m-%d %H:00:00');
-
+    sw.record('3.3');
     const lowestSellOrder = await getLowestSellOrder();
     if (lowestSellOrder) {
         info.lowest_sell_price = lowestSellOrder.price;
     }
-
+    sw.record('3.4');
     const highestBuyOrder = await getHighestBuyOrder();
     if (highestBuyOrder) {
         info.highest_buy_price = highestBuyOrder.price;
     }
-
+    sw.record('4');
     info.enable_share = false;
     res.json(info);
 });

@@ -49,7 +49,7 @@ export async function getTradeById(id: number) {
 }
 
 export async function getLatestTrade() {
-    return getTrade('SELECT * FROM trade ORDER BY id DESC');
+    return getTrade('SELECT * FROM trade ORDER BY id DESC LIMIT 1');
 }
 
 export async function getCandlesticData(mt: Date, tf: string) {
