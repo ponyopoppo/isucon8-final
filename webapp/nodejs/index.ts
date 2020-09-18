@@ -269,6 +269,7 @@ app.post('/orders', async (req, res) => {
             logger.error('run_trade failed');
         }
     }
+    sw.record('4');
     console.log('hoge');
     res.json({ id: order!.id });
 });

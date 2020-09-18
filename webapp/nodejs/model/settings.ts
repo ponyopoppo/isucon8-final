@@ -7,6 +7,8 @@ const BANK_APPID = 'bank_appid';
 const LOG_ENDPOINT = 'log_endpoint';
 const LOG_APPID = 'log_appid';
 
+const settingsCache = {} as any;
+
 export async function setSetting(k: string, v: string) {
     console.log({ k, v });
     await dbQuery(
@@ -16,16 +18,17 @@ export async function setSetting(k: string, v: string) {
 }
 
 export async function getSetting(k: string): Promise<string> {
+    if (settingsCache[k]) return settingsCache[k];
     const [{ val }] = await dbQuery('SELECT val FROM setting WHERE name = ?', [
         k,
     ]);
+    settingsCache[k] = val;
     return val;
 }
 
 export async function getIsubank(): Promise<IsuBank> {
     const endpoint = await getSetting(BANK_ENDPOINT);
     const appid = await getSetting(BANK_APPID);
-    console.log({ endpoint, appid });
     return new IsuBank(endpoint, appid);
 }
 
