@@ -81,7 +81,7 @@ app.use(async function beforeRequest(req, res, next) {
     }
     const user = await getUserById(userId);
     if (!user) {
-        await promisify(req.session!.destroy)();
+        await promisify(req.session!.destroy.bind(req.session!))();
         return sendError(res, 404, 'セッションが切断されました');
     }
     req.currentUser = user;
@@ -237,11 +237,12 @@ app.get('/orders', async (req, res) => {
 });
 
 app.post('/orders', async (req, res) => {
+    const sw = new StopWatch('orders');
     const user = req.currentUser;
     if (!user) {
         return sendError(res, 401, 'Not authenticated');
     }
-
+    sw.record('1');
     const amount = parseInt(req.body.amount);
     const price = parseInt(req.body.price);
     const type = req.body.type;
@@ -254,12 +255,12 @@ app.post('/orders', async (req, res) => {
     } catch (e) {
         return sendError(res, 400, e.message);
     }
-
+    sw.record('2');
     if (!order) {
         return sendError(res, 400, 'hogehoge');
     }
     const tradeChance = await hasTradeChanceByOrder(order.id);
-
+    sw.record('3');
     if (tradeChance) {
         try {
             await runTrade();
@@ -268,7 +269,7 @@ app.post('/orders', async (req, res) => {
             logger.error('run_trade failed');
         }
     }
-
+    console.log('hoge');
     res.json({ id: order!.id });
 });
 

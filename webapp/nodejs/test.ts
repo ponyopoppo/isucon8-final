@@ -17,26 +17,45 @@ async function init() {
         });
 }
 
-describe('/signup', () => {
-    it('should signup', async () => {
-        await init();
-        const response = await agent
-            .post('/signup')
-            .set('Accept', 'application/json')
-            .query({})
-            .send('name=test&bank_id=isucon-001&password=test');
-        snapshot(response.text);
-    });
-});
+async function signupAndSignin() {
+    await init();
+    await agent
+        .post('/signup')
+        .set('Accept', 'application/json')
+        .query({})
+        .send('name=test&bank_id=isucon-001&password=test');
+    await agent
+        .post('/signin')
+        .set('Accept', 'application/json')
+        .query({})
+        .send('bank_id=isucon-001&password=test')
+        .expect(200);
+}
 
-describe('/info', () => {
+// describe('/info', () => {
+//     it('should response something', async () => {
+//         await signupAndSignin();
+
+//         const response = await agent
+//             .get('/info')
+//             .set('Accept', 'application/json, text/plain, */*')
+//             .query({})
+//             .send({});
+
+//         snapshot(JSON.parse(response.text));
+//     });
+// });
+
+describe('/orders', () => {
     it('should response something', async () => {
+        await signupAndSignin();
+
         const response = await agent
-            .get('/info')
+            .post('/orders')
             .set('Accept', 'application/json, text/plain, */*')
             .query({})
-            .send({});
-
-        snapshot(response.text);
+            .send('type=sell&amount=2&price=6')
+            .expect(200);
+        assert.isNumber(JSON.parse(response.text).id);
     });
 });

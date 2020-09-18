@@ -39,8 +39,9 @@ export class User {
     }
 }
 
-export async function getUserById(id: number): Promise<User> {
+export async function getUserById(id: number): Promise<User | null> {
     const [r] = await dbQuery('SELECT * FROM user WHERE id = ?', [id]);
+    if (!r) return null;
     const { id: _id, bank_id, name, password, created_at } = r;
     return new User(_id, bank_id, name, password, created_at);
 }
