@@ -26,16 +26,22 @@ export async function getSetting(k: string): Promise<string> {
     return val;
 }
 
+const isubank = new IsuBank('', '');
 export async function getIsubank(): Promise<IsuBank> {
     const endpoint = await getSetting(BANK_ENDPOINT);
     const appid = await getSetting(BANK_APPID);
-    return new IsuBank(endpoint, appid);
+    isubank.endpoint = endpoint;
+    isubank.appID = appid;
+    return isubank;
 }
 
+const isulogger = new IsuLogger('', '');
 async function getLogger(): Promise<IsuLogger> {
     const endpoint = await getSetting(LOG_ENDPOINT);
     const appid = await getSetting(LOG_APPID);
-    return new IsuLogger(endpoint, appid);
+    isulogger.endpoint = endpoint;
+    isulogger.appID = appid;
+    return isulogger;
 }
 
 export async function sendLog(
