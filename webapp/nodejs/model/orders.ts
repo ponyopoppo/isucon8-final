@@ -142,6 +142,9 @@ export async function fetchOrderRelation(order: Order): Promise<void> {
     order.user = await getUserById(order.user_id);
     if (order.trade_id) {
         order.trade = await getTradeById(order.trade_id);
+        if (!order.trade) {
+            console.error('No trade!!', order.user_id, order.trade_id);
+        }
     }
 }
 
