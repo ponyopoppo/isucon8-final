@@ -54,41 +54,26 @@ export async function getLatestTrade() {
 
 export async function getCandlesticData(mt: Date, tf: string) {
     const query = `
-        SELECT
-            STR_TO_DATE(DATE_FORMAT(created_at, ?), '%Y-%m-%d %H:%i:%s') AS t,
-            MIN(id) AS min_id,
-            MAX(id) AS max_id,
-            MAX(price) AS h,
-            MIN(price) AS l
-        FROM trade
-        WHERE created_at >= ?
-        GROUP BY t
-        ORDER BY t
+        SELECT m.t, a.price as open, b.price as close, m.h, m.l
+        FROM (
+            SELECT
+                STR_TO_DATE(DATE_FORMAT(created_at, ?), ?) AS t,
+                MIN(id) AS min_id,
+                MAX(id) AS max_id,
+                MAX(price) AS h,
+                MIN(price) AS l
+            FROM trade
+            WHERE created_at >= ?
+            GROUP BY t
+        ) m
+        JOIN trade a ON a.id = m.min_id
+        JOIN trade b ON b.id = m.max_id
+        ORDER BY m.t
     `;
-    const result = await dbQuery(query, [tf, mt]);
-    const ids = new Set();
-    for (const row of result) {
-        ids.add(row.min_id);
-        ids.add(row.max_id);
-    }
-    const idPrices = await dbQuery(
-        `SELECT id, price FROM trade WHERE id IN (?)`,
-        [Array.from(ids)]
-    );
-    const id2price = {} as any;
-    for (const idPrice of idPrices) {
-        id2price[idPrice.id] = idPrice.price;
-    }
-
+    const result = await dbQuery(query, [tf, '%Y-%m-%d %H:%i:%s', mt]);
     return result.map(
         (row: any) =>
-            new CandlestickData(
-                row.t,
-                id2price[row.min_id],
-                id2price[row.max_id],
-                row.h,
-                row.l
-            )
+            new CandlestickData(row.t, row.open, row.close, row.h, row.l)
     );
 }
 
