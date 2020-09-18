@@ -38,6 +38,7 @@ export class IsuLogger {
             Authorization: 'Bearer ' + this.appID,
         };
         const res = await fetch(url, { body, headers, method: 'POST' });
+        console.log('log request', { url, headers, data });
         if (res.status >= 300) {
             throw new Error(
                 `failed isulogger request ${res.statusText} ${
