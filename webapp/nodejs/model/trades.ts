@@ -45,11 +45,11 @@ async function getTrade(query: string, ...args: any[]): Promise<Trade | null> {
 }
 
 export async function getTradeById(id: number) {
-    return getTrade('SELECT * FROM trade WHERE id = ?', id);
+    return await getTrade('SELECT * FROM trade WHERE id = ?', id);
 }
 
 export async function getLatestTrade() {
-    return getTrade('SELECT * FROM trade ORDER BY id DESC LIMIT 1');
+    return await getTrade('SELECT * FROM trade ORDER BY id DESC LIMIT 1');
 }
 
 export async function getCandlesticData(lowerBound: Date, timeFormat: string) {
@@ -87,7 +87,6 @@ export async function hasTradeChanceByOrder(orderId: number) {
     if (!highest) {
         return false;
     }
-
     if (order?.type === 'buy' && lowest.price <= order.price) {
         return true;
     }
@@ -105,7 +104,7 @@ async function reserveOrder(order: Order, price: number): Promise<number> {
         p = -p;
     }
     try {
-        return bank.reserve(order.user!.bank_id, p);
+        return await bank.reserve(order.user!.bank_id, p);
     } catch (e) {
         await cancelOrder(order, 'reserve_failed');
         await sendLog(order.type + '.error', {
