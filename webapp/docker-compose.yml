@@ -35,6 +35,7 @@ services:
       - mysql:/var/lib/mysql
       - ./sql:/docker-entrypoint-initdb.d
       - ./mysql/conf.d:/etc/mysql/conf.d
+      - /var/log/mysql:/var/log/mysql
     # development only
     ports:
       - "13306:3306"
