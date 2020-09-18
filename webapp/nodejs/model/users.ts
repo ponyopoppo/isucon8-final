@@ -2,6 +2,7 @@ import log4js from 'log4js';
 import bcrypt from 'bcrypt';
 import { dbQuery } from '../db';
 import { getIsubank, sendLog } from './settings';
+import { Connection } from 'mysql';
 const logger = log4js.getLogger();
 
 export class BankUserNotFound extends Error {
@@ -39,23 +40,33 @@ export class User {
     }
 }
 
-export async function getUserById(id: number): Promise<User | null> {
-    const [r] = await dbQuery('SELECT * FROM user WHERE id = ?', [id]);
+export async function getUserById(
+    db: Connection,
+    id: number
+): Promise<User | null> {
+    const [r] = await dbQuery(db, 'SELECT * FROM user WHERE id = ?', [id]);
     if (!r) return null;
     const { id: _id, bank_id, name, password, created_at } = r;
     return new User(_id, bank_id, name, password, created_at);
 }
 
-export async function getUserByIdWithLock(id: number) {
-    const [r] = await dbQuery('SELECT * FROM user WHERE id = ? FOR UPDATE', [
-        id,
-    ]);
+export async function getUserByIdWithLock(db: Connection, id: number) {
+    const [r] = await dbQuery(
+        db,
+        'SELECT * FROM user WHERE id = ? FOR UPDATE',
+        [id]
+    );
     const { id: _id, bank_id, name, password, created_at } = r;
     return new User(_id, bank_id, name, password, created_at);
 }
 
-export async function signup(name: string, bankId: string, password: string) {
-    const bank = await getIsubank();
+export async function signup(
+    db: Connection,
+    name: string,
+    bankId: string,
+    password: string
+) {
+    const bank = await getIsubank(db);
     // bank_idの検証
     try {
         await bank.check(bankId, 0);
@@ -67,6 +78,7 @@ export async function signup(name: string, bankId: string, password: string) {
     let userId: number;
     try {
         const result = await dbQuery(
+            db,
             'INSERT INTO user (bank_id, name, password, created_at) VALUES (?, ?, ?, NOW(6))',
             [bankId, name, hpass]
         );
@@ -74,15 +86,15 @@ export async function signup(name: string, bankId: string, password: string) {
     } catch (e) {
         throw new BankUserConflict();
     }
-    sendLog('signup', {
+    sendLog(db, 'signup', {
         bank_id: bankId,
         user_id: userId,
         name,
     });
 }
 
-export async function login(bankId: string, password: string) {
-    const [row] = await dbQuery('SELECT * FROM user WHERE bank_id = ?', [
+export async function login(db: Connection, bankId: string, password: string) {
+    const [row] = await dbQuery(db, 'SELECT * FROM user WHERE bank_id = ?', [
         bankId,
     ]);
     if (!row) {
@@ -95,6 +107,6 @@ export async function login(bankId: string, password: string) {
         throw new UserNotFound();
     }
 
-    sendLog('signin', { user_id: user.id });
+    sendLog(db, 'signin', { user_id: user.id });
     return user;
 }

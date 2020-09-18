@@ -11,6 +11,7 @@ import {
 } from './orders';
 import { getIsubank, sendLog } from './settings';
 import { promisify } from 'util';
+import { Connection } from 'mysql';
 
 class NoOrderForTrade extends Error {
     constructor() {
@@ -38,21 +39,29 @@ class CandlestickData {
     ) {}
 }
 
-async function getTrade(query: string, ...args: any[]): Promise<Trade | null> {
-    const [row] = await dbQuery(query, args);
+async function getTrade(
+    db: Connection,
+    query: string,
+    ...args: any[]
+): Promise<Trade | null> {
+    const [row] = await dbQuery(db, query, args);
     if (!row) return null;
     return new Trade(row.id, row.amount, row.price, row.created_at);
 }
 
-export async function getTradeById(id: number) {
-    return await getTrade('SELECT * FROM trade WHERE id = ?', id);
+export async function getTradeById(db: Connection, id: number) {
+    return await getTrade(db, 'SELECT * FROM trade WHERE id = ?', id);
 }
 
-export async function getLatestTrade() {
-    return await getTrade('SELECT * FROM trade ORDER BY id DESC LIMIT 1');
+export async function getLatestTrade(db: Connection) {
+    return await getTrade(db, 'SELECT * FROM trade ORDER BY id DESC LIMIT 1');
 }
 
-export async function getCandlesticData(lowerBound: Date, timeFormat: string) {
+export async function getCandlesticData(
+    db: Connection,
+    lowerBound: Date,
+    timeFormat: string
+) {
     const query = `
         SELECT m.t, a.price as open, b.price as close, m.h, m.l
         FROM (
@@ -70,20 +79,20 @@ export async function getCandlesticData(lowerBound: Date, timeFormat: string) {
         JOIN trade b ON b.id = m.max_id
         ORDER BY m.t
     `;
-    const result = await dbQuery(query, [timeFormat, lowerBound]);
+    const result = await dbQuery(db, query, [timeFormat, lowerBound]);
     return result.map(
         (row: any) =>
             new CandlestickData(row.t, row.open, row.close, row.h, row.l)
     );
 }
 
-export async function hasTradeChanceByOrder(orderId: number) {
-    const order = await getOrderById(orderId);
-    const lowest = await getLowestSellOrder();
+export async function hasTradeChanceByOrder(db: Connection, orderId: number) {
+    const order = await getOrderById(db, orderId);
+    const lowest = await getLowestSellOrder(db);
     if (!lowest) {
         return false;
     }
-    const highest = await getHighestBuyOrder();
+    const highest = await getHighestBuyOrder(db);
     if (!highest) {
         return false;
     }
@@ -97,8 +106,12 @@ export async function hasTradeChanceByOrder(orderId: number) {
     return false;
 }
 
-async function reserveOrder(order: Order, price: number): Promise<number> {
-    const bank = await getIsubank();
+async function reserveOrder(
+    db: Connection,
+    order: Order,
+    price: number
+): Promise<number> {
+    const bank = await getIsubank(db);
     let p = order.amount * price;
     if (order.type === 'buy') {
         p = -p;
@@ -106,8 +119,8 @@ async function reserveOrder(order: Order, price: number): Promise<number> {
     try {
         return await bank.reserve(order.user!.bank_id, p);
     } catch (e) {
-        await cancelOrder(order, 'reserve_failed');
-        await sendLog(order.type + '.error', {
+        await cancelOrder(db, order, 'reserve_failed');
+        await sendLog(db, order.type + '.error', {
             error: e.message,
             user_id: order.user_id,
             amount: order.amount,
@@ -118,19 +131,19 @@ async function reserveOrder(order: Order, price: number): Promise<number> {
 }
 
 async function commitReservedOrder(
+    db: Connection,
     order: Order,
     targets: Order[],
     reserveIds: number[]
 ) {
-    const {
-        insertId,
-    } = await dbQuery(
+    const { insertId } = await dbQuery(
+        db,
         'INSERT INTO trade (amount, price, created_at) VALUES (?, ?, NOW(6))',
         [order.amount, order.price]
     );
 
     const tradeId = insertId;
-    sendLog('trade', {
+    sendLog(db, 'trade', {
         trade_id: tradeId,
         price: order.price,
         amount: order.amount,
@@ -138,10 +151,11 @@ async function commitReservedOrder(
 
     for (const o of targets.concat([order])) {
         await dbQuery(
+            db,
             'UPDATE orders SET trade_id = ?, closed_at = NOW(6) WHERE id = ?',
             [tradeId, o.id]
         );
-        sendLog(o.type + '.trade', {
+        sendLog(db, o.type + '.trade', {
             order_id: o.id,
             price: order.price,
             amount: o.amount,
@@ -150,35 +164,37 @@ async function commitReservedOrder(
         });
     }
 
-    const [trade] = await dbQuery('SELECT * FROM trade WHERE id = ?', [
+    const [trade] = await dbQuery(db, 'SELECT * FROM trade WHERE id = ?', [
         tradeId,
     ]);
     if (!trade || trade.id !== tradeId) {
         console.log('ERROR trade is not found', tradeId);
     }
 
-    const bank = await getIsubank();
+    const bank = await getIsubank(db);
     await bank.commit(reserveIds);
 }
 
-async function tryTrade(orderId: number) {
-    const order = await getOpenOrderById(orderId);
+async function tryTrade(db: Connection, orderId: number) {
+    const order = await getOpenOrderById(db, orderId);
     if (!order) {
         throw new Error('try trade error');
     }
     let restAmount = order.amount;
     const unitPrice = order.price;
-    let reserves = [await reserveOrder(order, unitPrice)];
+    let reserves = [await reserveOrder(db, order, unitPrice)];
 
     try {
         let result: any[][];
         if (order.type === 'buy') {
             result = await dbQuery(
+                db,
                 'SELECT * FROM orders WHERE type = ? AND closed_at IS NULL AND price <= ? ORDER BY price ASC, created_at ASC, id ASC',
                 ['sell', order.price]
             );
         } else {
             result = await dbQuery(
+                db,
                 'SELECT * FROM orders WHERE type = ? AND closed_at IS NULL AND price >= ? ORDER BY price DESC, created_at DESC, id DESC',
                 ['buy', order.price]
             );
@@ -199,7 +215,7 @@ async function tryTrade(orderId: number) {
         const targets: Order[] = [];
         for (let to of targetOrders) {
             try {
-                to = (await getOpenOrderById(to.id)) as Order;
+                to = (await getOpenOrderById(db, to.id)) as Order;
                 if (!to) continue;
             } catch (e) {
                 continue;
@@ -208,7 +224,7 @@ async function tryTrade(orderId: number) {
                 continue;
             }
             try {
-                const rid = await reserveOrder(to, unitPrice);
+                const rid = await reserveOrder(db, to, unitPrice);
                 reserves.push(rid);
             } catch (e) {
                 continue;
@@ -223,7 +239,7 @@ async function tryTrade(orderId: number) {
             throw new NoOrderForTrade();
         }
         try {
-            await commitReservedOrder(order, targets, reserves);
+            await commitReservedOrder(db, order, targets, reserves);
         } catch (e) {
             console.error('commitReservedOrder error!', e);
         }
@@ -231,7 +247,7 @@ async function tryTrade(orderId: number) {
     } finally {
         if (reserves.length) {
             try {
-                const bank = await getIsubank();
+                const bank = await getIsubank(db);
                 await bank.cancel(reserves);
             } catch (e) {
                 console.error('Cancel error!', e);
@@ -240,13 +256,13 @@ async function tryTrade(orderId: number) {
     }
 }
 
-export async function runTrade() {
-    const lowestSellOrder = await getLowestSellOrder();
+export async function runTrade(db: Connection) {
+    const lowestSellOrder = await getLowestSellOrder(db);
     if (!lowestSellOrder) {
         // 売り注文が無いため成立しない
         return;
     }
-    const highestBuyOrder = await getHighestBuyOrder();
+    const highestBuyOrder = await getHighestBuyOrder(db);
     if (!highestBuyOrder) {
         // 買い注文が無いため成立しない
         return;
@@ -266,10 +282,10 @@ export async function runTrade() {
     for (const orderId of candidates) {
         await promisify(db.beginTransaction.bind(db))();
         try {
-            await tryTrade(orderId);
+            await tryTrade(db, orderId);
             // トレード成立したため次の取引を行う
             await promisify(db.commit.bind(db))();
-            await runTrade();
+            await runTrade(db);
         } catch (e) {
             if (
                 e instanceof NoOrderForTrade ||

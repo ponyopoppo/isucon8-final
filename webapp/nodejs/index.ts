@@ -17,7 +17,7 @@ import {
     getOrdersByUserIdAndLasttradeid,
     Order,
 } from './model/orders';
-import { transaction } from './db';
+import { getConnection, transaction } from './db';
 import {
     BankUserConflict,
     BankUserNotFound,
@@ -79,12 +79,15 @@ app.use(async function beforeRequest(req, res, next) {
         next();
         return;
     }
-    const user = await getUserById(userId);
+    const db = await getConnection();
+    const user = await getUserById(db, userId);
     if (!user) {
         await promisify(req.session!.destroy.bind(req.session!))();
+        db.release();
         return sendError(res, 404, 'セッションが切断されました');
     }
     req.currentUser = user;
+    db.release();
     next();
 });
 
@@ -93,8 +96,9 @@ app.get('/', (req, res) => {
 });
 
 app.post('/initialize', async (req, res) => {
-    await transaction(async () => {
-        await initBenchmark();
+    const db = await getConnection();
+    await transaction(db, async () => {
+        await initBenchmark(db);
     });
     console.log('body', req.body);
     for (const k of [
@@ -104,9 +108,9 @@ app.post('/initialize', async (req, res) => {
         'log_appid',
     ]) {
         const v = req.body[k];
-        await setSetting(k, v);
+        await setSetting(db, k, v);
     }
-
+    db.release();
     res.json({});
 });
 
@@ -116,10 +120,10 @@ app.post('/signup', async (req, res, next) => {
         sendError(res, 400, 'all parameters are required');
         return;
     }
-
+    const db = await getConnection();
     try {
-        await transaction(async () => {
-            await signup(name, bank_id, password);
+        await transaction(db, async () => {
+            await signup(db, name, bank_id, password);
         });
     } catch (e) {
         if (e instanceof BankUserNotFound) {
@@ -132,6 +136,8 @@ app.post('/signup', async (req, res, next) => {
         }
         next(e);
         return;
+    } finally {
+        db.release();
     }
     res.json({});
 });
@@ -144,10 +150,13 @@ app.post('/signin', async (req, res) => {
     }
 
     let user;
+    const db = await getConnection();
     try {
-        user = await login(bank_id, password);
+        user = await login(db, bank_id, password);
     } catch (e) {
         return sendError(res, 404, e.message);
+    } finally {
+        db.release();
     }
 
     req.session!.userId = user.id;
@@ -166,6 +175,7 @@ app.get('/info', async (req, res) => {
     let lastTradeId = 0;
     let lt = null;
     sw.record('1');
+    const db = await getConnection();
     if (cursor) {
         try {
             lastTradeId = parseInt(cursor as string);
@@ -173,25 +183,26 @@ app.get('/info', async (req, res) => {
             logger.error(`failed to parse cursor (${cursor})`);
         }
         if (lastTradeId > 0) {
-            const trade = await getTradeById(lastTradeId);
+            const trade = await getTradeById(db, lastTradeId);
             if (trade) {
                 lt = trade.created_at;
             }
         }
     }
     sw.record('2');
-    const latestTrade = await getLatestTrade();
+    const latestTrade = await getLatestTrade(db);
     info.cursor = latestTrade!.id;
     const user = req.currentUser;
     sw.record('2.5');
     if (user) {
         const orders = await getOrdersByUserIdAndLasttradeid(
+            db,
             user.id,
             lastTradeId
         );
         sw.record('2.75');
         for (const o of orders) {
-            await fetchOrderRelation(o);
+            await fetchOrderRelation(db, o);
         }
         info.traded_orders = orders;
     }
@@ -201,7 +212,7 @@ app.get('/info', async (req, res) => {
         fromT = new Date(lt);
         fromT.setMilliseconds(0);
     }
-    info.chart_by_sec = await getCandlesticData(fromT, '%Y-%m-%d %H:%i:%s');
+    info.chart_by_sec = await getCandlesticData(db, fromT, '%Y-%m-%d %H:%i:%s');
     sw.record('3.1');
     fromT = new Date(BASE_TIME.getTime() - 300 * 60 * 1000);
     if (lt && lt > fromT) {
@@ -209,7 +220,7 @@ app.get('/info', async (req, res) => {
         fromT.setMilliseconds(0);
         fromT.setSeconds(0);
     }
-    info.chart_by_min = await getCandlesticData(fromT, '%Y-%m-%d %H:%i:00');
+    info.chart_by_min = await getCandlesticData(db, fromT, '%Y-%m-%d %H:%i:00');
     sw.record('3.2');
     fromT = new Date(BASE_TIME.getTime() - 48 * 60 * 60 * 1000);
     if (lt && lt > fromT) {
@@ -218,19 +229,24 @@ app.get('/info', async (req, res) => {
         fromT.setSeconds(0);
         fromT.setMinutes(0);
     }
-    info.chart_by_hour = await getCandlesticData(fromT, '%Y-%m-%d %H:00:00');
+    info.chart_by_hour = await getCandlesticData(
+        db,
+        fromT,
+        '%Y-%m-%d %H:00:00'
+    );
     sw.record('3.3');
-    const lowestSellOrder = await getLowestSellOrder();
+    const lowestSellOrder = await getLowestSellOrder(db);
     if (lowestSellOrder) {
         info.lowest_sell_price = lowestSellOrder.price;
     }
     sw.record('3.4');
-    const highestBuyOrder = await getHighestBuyOrder();
+    const highestBuyOrder = await getHighestBuyOrder(db);
     if (highestBuyOrder) {
         info.highest_buy_price = highestBuyOrder.price;
     }
     sw.record('4');
     info.enable_share = false;
+    db.release();
     res.json(info);
 });
 
@@ -239,12 +255,12 @@ app.get('/orders', async (req, res) => {
     if (!user) {
         return sendError(res, 401, 'Not authenticated');
     }
-
-    const orders = await getOrdersByUserId(user.id);
+    const db = await getConnection();
+    const orders = await getOrdersByUserId(db, user.id);
     for (const o of orders) {
-        await fetchOrderRelation(o);
+        await fetchOrderRelation(db, o);
     }
-
+    db.release();
     res.json(orders);
 });
 
@@ -258,30 +274,33 @@ app.post('/orders', async (req, res) => {
     const amount = parseInt(req.body.amount);
     const price = parseInt(req.body.price);
     const type = req.body.type;
-
+    const db = await getConnection();
     let order: Order | undefined;
     try {
-        await transaction(async () => {
-            order = await addOrder(type, user.id, amount, price);
+        await transaction(db, async () => {
+            order = await addOrder(db, type, user.id, amount, price);
         });
     } catch (e) {
+        db.release();
         return sendError(res, 400, e.message);
     }
     sw.record('2');
     if (!order) {
+        db.release();
         return sendError(res, 400, 'hogehoge');
     }
-    const tradeChance = await hasTradeChanceByOrder(order.id);
+    const tradeChance = await hasTradeChanceByOrder(db, order.id);
     sw.record('3');
     if (tradeChance) {
         try {
-            await runTrade();
+            await runTrade(db);
         } catch (e) {
             // トレードに失敗してもエラーにはしない
             logger.error('run_trade failed');
         }
     }
     sw.record('4');
+    db.release();
     res.json({ id: order!.id });
 });
 
@@ -293,14 +312,16 @@ app.delete('/order/:id', async (req, res) => {
         return sendError(res, 401, 'Not authenticated');
     }
 
+    const db = await getConnection();
     try {
-        await transaction(async () => {
-            await deleteOrder(user.id, orderId, 'canceled');
+        await transaction(db, async () => {
+            await deleteOrder(db, user.id, orderId, 'canceled');
         });
     } catch (e) {
+        db.release();
         return sendError(res, 404, e.message);
     }
-
+    db.release();
     res.json({ id: orderId });
 });
 
