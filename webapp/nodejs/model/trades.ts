@@ -150,6 +150,13 @@ async function commitReservedOrder(
         });
     }
 
+    const [trade] = await dbQuery('SELECT * FROM trade WHERE id = ?', [
+        tradeId,
+    ]);
+    if (!trade || trade.id !== tradeId) {
+        console.log('ERROR trade is not found', tradeId);
+    }
+
     const bank = await getIsubank();
     await bank.commit(reserveIds);
 }
