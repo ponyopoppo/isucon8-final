@@ -14,7 +14,9 @@ export class IsuLogger {
         setInterval(async () => {
             if (!queue.length) return;
             try {
-                await this.request(queue);
+                for (const data of queue) {
+                    await this.request(data);
+                }
                 queue = [];
             } catch (e) {}
         }, 200);
@@ -28,8 +30,8 @@ export class IsuLogger {
         });
     }
 
-    private async request(data: Data[]) {
-        const url = urljoin(this.endpoint, '/send_bulk');
+    private async request(data: Data) {
+        const url = urljoin(this.endpoint, '/send');
         const body = JSON.stringify(data);
         const headers = {
             'Content-Type': 'application/json',
