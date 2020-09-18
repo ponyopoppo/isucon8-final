@@ -27,15 +27,45 @@ export async function dbQuery(query: string, args: any[] = []): Promise<any> {
     );
 }
 
-export async function transaction(callback: () => Promise<void>) {
-    await promisify(db.beginTransaction.bind(db))();
+let lock = false;
+const queue: (() => Promise<void>)[] = [];
+
+async function runNextTransaction() {
+    if (!queue.length) return;
+    if (lock) return;
+    lock = true;
     try {
-        await callback();
-        await promisify(db.commit.bind(db))();
-    } catch (e) {
-        await promisify(db.rollback.bind(db))();
-        throw e;
+        await queue.shift()!();
+    } finally {
+        lock = false;
     }
+    runNextTransaction();
+}
+
+export async function transaction(callback: () => Promise<void>) {
+    async function doTransaction() {
+        await promisify(db.beginTransaction.bind(db))();
+        try {
+            await callback();
+            await promisify(db.commit.bind(db))();
+        } catch (e) {
+            await promisify(db.rollback.bind(db))();
+            throw e;
+        }
+        runNextTransaction();
+    }
+
+    return await new Promise((resolve, reject) => {
+        queue.push(async () => {
+            try {
+                await doTransaction();
+                resolve();
+            } catch (e) {
+                reject(e);
+            }
+        });
+        runNextTransaction();
+    });
 }
 
 export default db;
