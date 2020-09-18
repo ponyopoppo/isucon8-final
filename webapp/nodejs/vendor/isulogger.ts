@@ -14,8 +14,9 @@ export class IsuLogger {
         setInterval(async () => {
             if (!queue.length) return;
             try {
-                await this.request(queue);
+                const data = [...queue];
                 queue = [];
+                await this.request(data);
             } catch (e) {
                 console.log('logger error!!', e);
             }
