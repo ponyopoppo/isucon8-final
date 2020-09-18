@@ -45,14 +45,18 @@ async function runNextTransaction() {
 export async function transaction(callback: () => Promise<void>) {
     async function doTransaction() {
         await promisify(db.beginTransaction.bind(db))();
+        const id = Math.random();
+        console.log('begin transaction ' + id);
         try {
             await callback();
             await promisify(db.commit.bind(db))();
         } catch (e) {
             await promisify(db.rollback.bind(db))();
             throw e;
+        } finally {
+            console.log('end transaction ' + id);
+            runNextTransaction();
         }
-        runNextTransaction();
     }
 
     return await new Promise((resolve, reject) => {
