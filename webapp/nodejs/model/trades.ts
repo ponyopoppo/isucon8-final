@@ -343,17 +343,13 @@ async function tryTrade(db: Connection, orderId: number) {
                 )
         );
         const targets: Order[] = [];
-
-        await dbQuery(db, 'SELECT id FROM users WHERE id IN (?) FOR UPDATE', [
-            targetOrders.map((order) => order.user_id),
-        ]);
         for (let to of targetOrders) {
-            // try {
-            //     to = (await getOpenOrderById(db, to.id)) as Order;
-            //     if (!to) continue;
-            // } catch (e) {
-            //     continue;
-            // }
+            try {
+                to = (await getOpenOrderById(db, to.id)) as Order;
+                if (!to) continue;
+            } catch (e) {
+                continue;
+            }
             if (to.amount > restAmount) {
                 continue;
             }
