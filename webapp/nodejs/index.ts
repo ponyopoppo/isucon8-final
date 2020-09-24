@@ -16,6 +16,8 @@ import {
     getOrdersByUserId,
     getOrdersByUserIdAndLasttradeid,
     Order,
+    resetHighestBuyCache,
+    resetLowesetSellCache,
 } from './model/orders';
 import { dbQuery, getConnection, transaction } from './db';
 import {
@@ -99,6 +101,8 @@ app.get('/', (req, res) => {
 
 app.post('/initialize', async (req, res) => {
     const db = await getConnection();
+    resetLowesetSellCache();
+    resetHighestBuyCache();
     await transaction(db, async () => {
         await initBenchmark(db);
     });
