@@ -26,7 +26,7 @@ export class Trade {
         public amount: number,
         public price: number,
         public created_at: Date
-    ) {}
+    ) { }
 }
 
 class CandlestickData {
@@ -36,7 +36,7 @@ class CandlestickData {
         public close: number,
         public high: number,
         public lower: number
-    ) {}
+    ) { }
 }
 
 interface Candle {
@@ -320,13 +320,13 @@ async function tryTrade(db: Connection, orderId: number) {
             result = await dbQuery(
                 db,
                 'SELECT * FROM orders WHERE type = ? AND closed_at IS NULL AND price <= ? ORDER BY price ASC, created_at ASC, id ASC LIMIT ? FOR UPDATE',
-                ['sell', order.price, order.amount * 10]
+                ['sell', order.price, order.amount]
             );
         } else {
             result = await dbQuery(
                 db,
                 'SELECT * FROM orders WHERE type = ? AND closed_at IS NULL AND price >= ? ORDER BY price DESC, created_at DESC, id DESC LIMIT ? FOR UPDATE',
-                ['buy', order.price, order.amount * 10]
+                ['buy', order.price, order.amount]
             );
         }
         const targetOrders = result.map(
