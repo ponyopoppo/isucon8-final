@@ -38,7 +38,7 @@ import {
     runTrade,
 } from './model/trades';
 import StopWatch from '@ponyopoppo/node-stop-watch';
-// StopWatch.disableAll();
+StopWatch.disableAll();
 declare global {
     namespace Express {
         export interface Request {
@@ -300,20 +300,33 @@ app.post('/orders', async (req, res) => {
         db.release();
         return sendError(res, 400, 'hogehoge');
     }
-    const tradeChance = await hasTradeChanceByOrder(db, order.id);
-    sw.record('3');
-    if (tradeChance) {
-        try {
-            await runTrade(db);
-        } catch (e) {
-            // トレードに失敗してもエラーにはしない
-            logger.error('run_trade failed');
-        }
-    }
+    // const tradeChance = await hasTradeChanceByOrder(db, order.id);
+    // sw.record('3');
+    // if (tradeChance) {
+    //     try {
+    //         await runTrade(db);
+    //     } catch (e) {
+    //         // トレードに失敗してもエラーにはしない
+    //         logger.error('run_trade failed');
+    //     }
+    // }
+    tradeQueue++;
     sw.record('4');
     db.release();
     res.json({ id: order!.id });
 });
+let tradeQueue = 0;
+setTimeout(async () => {
+    if (tradeQueue <= 0) return;
+    const db = await getConnection();
+    try {
+        await runTrade(db);
+    } catch (e) {
+        // トレードに失敗してもエラーにはしない
+        logger.error('run_trade failed');
+    }
+    tradeQueue--;
+}, 100);
 
 app.delete('/order/:id', async (req, res) => {
     const { id } = req.params;

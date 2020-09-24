@@ -153,7 +153,7 @@ export function getLowestSellCache() {
 export async function getLowestSellOrder(
     db: Connection
 ): Promise<Order | null> {
-    if (lowestSellCache) return lowestSellCache;
+    // if (lowestSellCache) return lowestSellCache;
     lowestSellCache = await getOneOrder(
         db,
         'SELECT * FROM orders WHERE type = ? AND closed_at IS NULL ORDER BY price ASC, created_at ASC LIMIT 1',
@@ -173,7 +173,7 @@ export function resetHighestBuyCache() {
 export async function getHighestBuyOrder(
     db: Connection
 ): Promise<Order | null> {
-    if (highestBuyCache) return highestBuyCache;
+    // if (highestBuyCache) return highestBuyCache;
     highestBuyCache = await getOneOrder(
         db,
         'SELECT * FROM orders WHERE type = ? AND closed_at IS NULL ORDER BY price DESC, created_at ASC LIMIT 1',
