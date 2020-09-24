@@ -1,5 +1,5 @@
 import urljoin from 'url-join';
-import fetch from 'node-fetch';
+import axios from 'axios';
 
 interface Data {
     tag: string;
@@ -38,12 +38,10 @@ export class IsuLogger {
             'Content-Type': 'application/json',
             Authorization: 'Bearer ' + this.appID,
         };
-        const res = await fetch(url, { body, headers, method: 'POST' });
+        const res = await axios.post(url, body, { headers });
         if (res.status >= 300) {
             throw new Error(
-                `failed isulogger request ${res.statusText} ${
-                    res.status
-                } ${await res.text()}`
+                `failed isulogger request ${res.statusText} ${res.status} ${res.data}`
             );
         }
     }

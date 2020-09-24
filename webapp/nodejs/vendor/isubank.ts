@@ -1,5 +1,5 @@
 import urljoin from 'url-join';
-import fetch, { Response } from 'node-fetch';
+import axios, { AxiosResponse } from 'axios';
 
 class IsubankError extends Error {
     constructor(message?: string) {
@@ -68,11 +68,9 @@ export class IsuBank {
             'Content-Type': 'application/json',
             Authorization: 'Bearer ' + this.appID,
         };
-        let res: Response;
+        let res: AxiosResponse;
         try {
-            res = await fetch(url, {
-                method: 'POST',
-                body,
+            res = await axios.post(url, body, {
                 headers,
             });
         } catch (e) {
@@ -81,10 +79,10 @@ export class IsuBank {
         }
 
         if (res.status === 200) {
-            return res.json();
+            return res.data;
         }
 
-        const { error } = await res.json();
+        const { error } = res.data;
         console.log({ error });
         if (error === 'bank_id not found') {
             throw new NoUserError();
