@@ -136,25 +136,45 @@ describe('/orders', () => {
         return sum;
     }
 
-    it('should post many and get orders', async () => {
-        const [ids1] = await Promise.all([
-            postManyOrders(agent),
-            postManyOrders(agent2),
-        ]);
-        const response = await agent
+    // it('should post many and get orders', async () => {
+    //     const [ids1] = await Promise.all([
+    //         postManyOrders(agent),
+    //         postManyOrders(agent2),
+    //     ]);
+    //     const response = await agent
+    //         .get('/orders')
+    //         .set('Accept', 'application/json, text/plain, */*')
+    //         .query({})
+    //         .send()
+    //         .expect(200);
+    //     const orders = JSON.parse(response.text);
+    //     const delta1 = await getDelta(agent);
+    //     const delta2 = await getDelta(agent2);
+    //     const actualIds = orders.map(({ id, trade, trade_id }: any) => {
+    //         assert.isFalse(!!(trade_id && !trade));
+    //         return id;
+    //     });
+    //     assert.equal(delta1, -delta2);
+    //     assert.sameMembers(ids1, actualIds);
+    // }).timeout(100000);
+
+    it('should delete order', async () => {
+        await signupAndSignin(agent);
+        const res = await agent
+            .post('/orders')
+            .set('Accept', 'application/json, text/plain, */*')
+            .query({})
+            .send('type=sell&amount=2&price=6')
+            .expect(200);
+        const id = JSON.parse(res.text).id;
+        await agent.delete(`/order/${id}`).query({}).send({});
+        const response2 = await agent
             .get('/orders')
             .set('Accept', 'application/json, text/plain, */*')
             .query({})
             .send()
             .expect(200);
-        const orders = JSON.parse(response.text);
-        const delta1 = await getDelta(agent);
-        const delta2 = await getDelta(agent2);
-        console.log({ delta1, delta2 });
-        const actualIds = orders.map(({ id, trade, trade_id }: any) => {
-            assert.isFalse(!!(trade_id && !trade));
-            return id;
-        });
-        assert.sameMembers(ids1, actualIds);
-    }).timeout(100000);
+        const orders: Order[] = JSON.parse(response2.text);
+        snapshot(orders);
+    });
 });
