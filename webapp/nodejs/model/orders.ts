@@ -190,12 +190,12 @@ export async function addOrder(
     if (amount <= 0 || price <= 0) {
         throw new Error('value error');
     }
-    const user = await getUserById(db, userId);
+    const user = await getUserByIdWithLock(db, userId);
     const bank = await getIsubank(db);
     if (ot === 'buy') {
         const total = price * amount;
         try {
-            await bank.check(user!.bank_id, total);
+            await bank.check(user.bank_id, total);
         } catch (e) {
             await sendLog(db, 'buy.error', {
                 error: e.message,
