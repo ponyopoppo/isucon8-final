@@ -343,12 +343,6 @@ async function tryTrade(db: Connection, orderId: number) {
         );
         const targets: Order[] = [];
         for (let to of targetOrders) {
-            try {
-                to = (await getOpenOrderById(db, to.id)) as Order;
-                if (!to) continue;
-            } catch (e) {
-                continue;
-            }
             if (to.amount > restAmount) {
                 continue;
             }
