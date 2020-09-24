@@ -332,6 +332,10 @@ app.delete('/order/:id', async (req, res) => {
     res.json({ id: orderId });
 });
 
+app.get('/stopwatch', (_, res) => {
+    res.send(StopWatch.renderResult());
+});
+
 app.use(function errorHandler(
     err: Error,
     _req: express.Request,

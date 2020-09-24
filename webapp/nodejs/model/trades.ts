@@ -12,6 +12,7 @@ import {
 import { getIsubank, sendLog } from './settings';
 import { promisify } from 'util';
 import { Connection } from 'mysql';
+import StopWatch from '@ponyopoppo/node-stop-watch';
 
 class NoOrderForTrade extends Error {
     constructor() {
@@ -306,14 +307,16 @@ async function commitReservedOrder(
 }
 
 async function tryTrade(db: Connection, orderId: number) {
+    const sw = new StopWatch('tryTrade');
     const order = await getOpenOrderById(db, orderId);
     if (!order) {
         throw new Error('try trade error');
     }
+    sw.record('1');
     let restAmount = order.amount;
     const unitPrice = order.price;
     let reserves = [await reserveOrder(db, order, unitPrice)];
-
+    sw.record('2');
     try {
         let result: any[][];
         if (order.type === 'buy') {
@@ -329,6 +332,7 @@ async function tryTrade(db: Connection, orderId: number) {
                 ['buy', order.price, order.amount * 10]
             );
         }
+        sw.record('3');
         const targetOrders = result.map(
             (row: any) =>
                 new Order(
@@ -365,11 +369,13 @@ async function tryTrade(db: Connection, orderId: number) {
                 break;
             }
         }
+        sw.record('4');
         if (restAmount > 0) {
             throw new NoOrderForTrade();
         }
         try {
             await commitReservedOrder(db, order, targets, reserves);
+            sw.record('5');
         } catch (e) {
             console.error('commitReservedOrder error!', e);
             process.exit(1);
@@ -379,12 +385,15 @@ async function tryTrade(db: Connection, orderId: number) {
         if (reserves.length) {
             try {
                 const bank = await getIsubank(db);
+                sw.record('6');
                 await bank.cancel(reserves);
+                sw.record('7');
             } catch (e) {
                 console.error('Cancel error!', e);
                 process.exit(1);
             }
         }
+        sw.end();
     }
 }
 
