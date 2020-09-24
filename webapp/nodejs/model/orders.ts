@@ -167,7 +167,7 @@ export function getHighestBuyCache() {
     return highestBuyCache;
 }
 export function resetHighestBuyCache() {
-    lowestSellCache = null;
+    highestBuyCache = null;
 }
 
 export async function getHighestBuyOrder(
