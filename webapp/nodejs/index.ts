@@ -249,7 +249,11 @@ app.get('/info', async (req, res) => {
         info.highest_buy_price = highestBuyOrder.price;
     }
     sw.record('4');
-    info.enable_share = user.id % 10 == 0 ? true : false;
+    if (user && user.id) {
+        info.enable_share = user.id % 10 == 0 ? true : false;
+    } else {
+        info.enable_share = false;
+    }
     db.release();
     res.json(info);
 });
