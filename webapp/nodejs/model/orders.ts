@@ -238,8 +238,8 @@ export async function deleteOrder(
     orderId: number,
     reason: string
 ): Promise<void> {
-    const user = await getUserByIdWithLock(db, userId);
     const order = await getOrderByIdWithLock(db, orderId);
+    const user = await getUserByIdWithLock(db, userId);
     if (!order) {
         throw new OrderNotFound();
     }

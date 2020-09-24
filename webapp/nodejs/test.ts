@@ -176,5 +176,5 @@ describe('/orders', () => {
             .expect(200);
         const orders: Order[] = JSON.parse(response2.text);
         snapshot(orders);
-    });
+    }).timeout(20000);
 });
