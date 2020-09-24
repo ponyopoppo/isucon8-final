@@ -272,16 +272,13 @@ export async function deleteOrder(
     orderId: number,
     reason: string
 ): Promise<void> {
-    await dbQuery(db, 'SELECT id FROM orders WHERE user_Id = ? FOR UPDATE', [
-        userId,
-    ]);
-    const order = await getOrderByIdWithLock(db, orderId);
     const user = await getUserByIdWithLock(db, userId);
+    const order = await getOrderByIdWithLock(db, orderId);
 
     if (!order) {
         throw new OrderNotFound();
     }
-    if (order.user_id !== user!.id) {
+    if (order.user_id !== user.id) {
         throw new OrderNotFound();
     }
     if (order.closed_at) {
