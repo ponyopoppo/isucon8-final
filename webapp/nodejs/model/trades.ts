@@ -397,6 +397,8 @@ async function tryTrade(db: Connection, orderId: number) {
     }
 }
 
+let runningTrade: { [key: string]: boolean } = {};
+
 export async function runTrade(db: Connection) {
     const lowestSellOrder = await getLowestSellOrder(db);
     if (!lowestSellOrder) {
@@ -412,7 +414,8 @@ export async function runTrade(db: Connection) {
         // 最安の売値が最高の買値よりも高いため成立しない
         return;
     }
-
+    if (runningTrade[`${lowestSellOrder.id}_${highestBuyOrder.id}`]) return;
+    runningTrade[`${lowestSellOrder.id}_${highestBuyOrder.id}`] = true;
     let candidates: number[];
     if (lowestSellOrder.amount > highestBuyOrder.amount) {
         candidates = [lowestSellOrder.id, highestBuyOrder.id];
@@ -437,13 +440,20 @@ export async function runTrade(db: Connection) {
                 continue;
             } else if (e instanceof CreditInsufficient) {
                 await promisify(db.commit.bind(db))();
+                runningTrade[
+                    `${lowestSellOrder.id}_${highestBuyOrder.id}`
+                ] = false;
                 throw e;
             } else {
                 await promisify(db.rollback.bind(db))();
+                runningTrade[
+                    `${lowestSellOrder.id}_${highestBuyOrder.id}`
+                ] = false;
                 throw e;
             }
         }
     }
+    runningTrade[`${lowestSellOrder.id}_${highestBuyOrder.id}`] = false;
 
     // 個数が不足していて不成立
 }
