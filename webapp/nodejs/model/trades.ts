@@ -418,6 +418,7 @@ export async function runTrade(db: Connection) {
             // トレード成立したため次の取引を行う
             await promisify(db.commit.bind(db))();
             await runTrade(db);
+            break;
         } catch (e) {
             if (
                 e instanceof NoOrderForTrade ||
