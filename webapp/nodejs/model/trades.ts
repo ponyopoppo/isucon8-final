@@ -2,12 +2,16 @@ import db, { dbQuery } from '../db';
 import {
     cancelOrder,
     CreditInsufficient,
+    getHighestBuyCache,
     getHighestBuyOrder,
+    getLowestSellCache,
     getLowestSellOrder,
     getOpenOrderById,
     getOrderById,
     Order,
     OrderAlreadyClosed,
+    resetHighestBuyCache,
+    resetLowesetSellCache,
 } from './orders';
 import { getIsubank, sendLog } from './settings';
 import { promisify } from 'util';
@@ -284,7 +288,14 @@ async function commitReservedOrder(
         'UPDATE orders SET trade_id = ?, closed_at = NOW(6) WHERE id IN (?)',
         [tradeId, orders.map((order) => order.id)]
     );
+
     for (const o of orders) {
+        if (getLowestSellCache()?.id === o.id) {
+            resetLowesetSellCache();
+        }
+        if (getHighestBuyCache()?.id === o.id) {
+            resetHighestBuyCache();
+        }
         sendLog(db, o.type + '.trade', {
             order_id: o.id,
             price: order.price,

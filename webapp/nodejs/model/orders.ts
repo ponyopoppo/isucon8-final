@@ -142,24 +142,44 @@ export async function getOpenOrderById(
     return order;
 }
 
+let lowestSellCache: Order | null = null;
+
+export function resetLowesetSellCache() {
+    lowestSellCache = null;
+}
+export function getLowestSellCache() {
+    return lowestSellCache;
+}
 export async function getLowestSellOrder(
     db: Connection
 ): Promise<Order | null> {
-    return getOneOrder(
+    if (lowestSellCache) return lowestSellCache;
+    lowestSellCache = await getOneOrder(
         db,
         'SELECT * FROM orders WHERE type = ? AND closed_at IS NULL ORDER BY price ASC, created_at ASC LIMIT 1',
         'sell'
     );
+    return lowestSellCache;
+}
+
+let highestBuyCache: Order | null = null;
+export function getHighestBuyCache() {
+    return highestBuyCache;
+}
+export function resetHighestBuyCache() {
+    lowestSellCache = null;
 }
 
 export async function getHighestBuyOrder(
     db: Connection
 ): Promise<Order | null> {
-    return getOneOrder(
+    if (highestBuyCache) return highestBuyCache;
+    highestBuyCache = await getOneOrder(
         db,
         'SELECT * FROM orders WHERE type = ? AND closed_at IS NULL ORDER BY price DESC, created_at ASC LIMIT 1',
         'buy'
     );
+    return highestBuyCache;
 }
 
 export async function fetchOrderRelation(
@@ -214,6 +234,20 @@ export async function addOrder(
         'INSERT INTO orders (type, user_id, amount, price, created_at) VALUES (?, ?, ?, ?, ?)',
         [ot, userId, amount, price, createdAt]
     );
+    if (
+        ot === 'buy' &&
+        highestBuyCache?.price &&
+        price > highestBuyCache?.price
+    ) {
+        resetHighestBuyCache();
+    }
+    if (
+        ot === 'sell' &&
+        lowestSellCache?.price &&
+        price < lowestSellCache?.price
+    ) {
+        resetLowesetSellCache();
+    }
     await sendLog(db, ot + '.order', {
         order_id: insertId,
         user_id: userId,
@@ -266,6 +300,12 @@ export async function cancelOrder(
     await dbQuery(db, 'UPDATE orders SET closed_at = NOW(6) WHERE id = ?', [
         order.id,
     ]);
+    if (getLowestSellCache()?.id === order.id) {
+        resetLowesetSellCache();
+    }
+    if (getHighestBuyCache()?.id === order.id) {
+        resetHighestBuyCache();
+    }
     await sendLog(db, order.type + '.delete', {
         order_id: order.id,
         user_id: order.user_id,
