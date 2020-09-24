@@ -1,3 +1,4 @@
+import { testOverwrites } from './testOverwrites';
 import request, { SuperAgentTest } from 'supertest';
 import { assert } from 'chai';
 import { JSDOM } from 'jsdom';
@@ -20,9 +21,9 @@ async function init() {
         });
 }
 
-async function signupAndSignin(agent: request.SuperAgentTest) {
+async function signupAndSignin(agent: request.SuperAgentTest, id: number = 0) {
     await init();
-    const bankId = `isucon-00${Math.random() * 9 + 1}`;
+    const bankId = `isucon-00${id || Math.random() * 9 + 1}`;
     await agent
         .post('/signup')
         .set('Accept', 'application/json')
@@ -38,7 +39,7 @@ async function signupAndSignin(agent: request.SuperAgentTest) {
 
 // describe('/info', () => {
 //     it('should response something', async () => {
-//         await signupAndSignin();
+//         await signupAndSignin(agent, 1);
 
 //         const response = await agent
 //             .get('/info')
@@ -47,12 +48,13 @@ async function signupAndSignin(agent: request.SuperAgentTest) {
 //             .send({});
 
 //         snapshot(JSON.parse(response.text));
-//     });
+//     }).timeout(10000);
 // });
 
 describe('/orders', () => {
+    testOverwrites();
     // it('should order', async () => {
-    //     await signupAndSignin();
+    //     await signupAndSignin(agent);
 
     //     const response = await agent
     //         .post('/orders')
@@ -64,7 +66,7 @@ describe('/orders', () => {
     // });
 
     // it('should get orders', async () => {
-    //     await signupAndSignin();
+    //     await signupAndSignin(agent, 1);
     //     await agent
     //         .post('/orders')
     //         .set('Accept', 'application/json, text/plain, */*')
@@ -89,7 +91,7 @@ describe('/orders', () => {
     async function postManyOrders(agent: supertest.SuperAgentTest) {
         await signupAndSignin(agent);
         let ids = await Promise.all(
-            new Array(200).fill(0).map(async () => {
+            new Array(100).fill(0).map(async () => {
                 try {
                     const res = await agent
                         .post('/orders')
