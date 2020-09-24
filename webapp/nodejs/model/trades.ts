@@ -277,12 +277,13 @@ async function commitReservedOrder(
         amount: order.amount,
     });
 
-    for (const o of targets.concat([order])) {
-        await dbQuery(
-            db,
-            'UPDATE orders SET trade_id = ?, closed_at = NOW(6) WHERE id = ?',
-            [tradeId, o.id]
-        );
+    const orders = targets.concat([order]);
+    await dbQuery(
+        db,
+        'UPDATE orders SET trade_id = ?, closed_at = NOW(6) WHERE id IN (?)',
+        [tradeId, orders.map((order) => order.id)]
+    );
+    for (const o of orders) {
         sendLog(db, o.type + '.trade', {
             order_id: o.id,
             price: order.price,
@@ -343,6 +344,12 @@ async function tryTrade(db: Connection, orderId: number) {
         );
         const targets: Order[] = [];
         for (let to of targetOrders) {
+            try {
+                to = (await getOpenOrderById(db, to.id)) as Order;
+                if (!to) continue;
+            } catch (e) {
+                continue;
+            }
             if (to.amount > restAmount) {
                 continue;
             }
