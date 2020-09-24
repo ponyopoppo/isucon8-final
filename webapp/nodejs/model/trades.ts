@@ -318,14 +318,14 @@ async function tryTrade(db: Connection, orderId: number) {
         if (order.type === 'buy') {
             result = await dbQuery(
                 db,
-                'SELECT * FROM orders WHERE type = ? AND closed_at IS NULL AND price <= ? ORDER BY price ASC, created_at ASC, id ASC FOR UPDATE',
-                ['sell', order.price]
+                'SELECT * FROM orders WHERE type = ? AND closed_at IS NULL AND price <= ? ORDER BY price ASC, created_at ASC, id ASC LIMIT ? FOR UPDATE',
+                ['sell', order.price, order.amount * 10]
             );
         } else {
             result = await dbQuery(
                 db,
-                'SELECT * FROM orders WHERE type = ? AND closed_at IS NULL AND price >= ? ORDER BY price DESC, created_at DESC, id DESC FOR UPDATE',
-                ['buy', order.price]
+                'SELECT * FROM orders WHERE type = ? AND closed_at IS NULL AND price >= ? ORDER BY price DESC, created_at DESC, id DESC LIMIT ? FOR UPDATE',
+                ['buy', order.price, order.amount * 10]
             );
         }
         const targetOrders = result.map(
